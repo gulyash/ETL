@@ -8,7 +8,7 @@ from json import JSONDecodeError
 
 from functools import wraps
 
-from postgres_to_es.etl import JsonFileStorage, State
+from postgres_to_es.state import JsonFileStorage, State
 
 
 def test_get_empty_state():
