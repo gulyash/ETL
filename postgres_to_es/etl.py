@@ -58,4 +58,5 @@ class Etl:
         self.state.set_state("last_updated_at", datetime.datetime.now())
 
 
-Etl().run()
+if __name__ == '__main__':
+    Etl().run()
