@@ -12,20 +12,19 @@ from sqlite_to_postgres.schemas import (
     Genre,
     Person,
     GenreFilmWork,
-    PersonFilmWork
+    PersonFilmWork,
 )
 
-Replicable = TypeVar('Replicable', Movie, Genre, Person, GenreFilmWork, PersonFilmWork)
+Replicable = TypeVar("Replicable", Movie, Genre, Person, GenreFilmWork, PersonFilmWork)
 
 
 class PostgresSaver:
     def __init__(self, _connection: _connection) -> None:
         self.pg_conn = _connection
 
-    def generate_mogrified_tuples(self,
-                                  row_format_string: str,
-                                  items: List[Replicable],
-                                  cursor: DictCursor):
+    def generate_mogrified_tuples(
+        self, row_format_string: str, items: List[Replicable], cursor: DictCursor
+    ):
         for item in items:
             t = astuple(item)
             mogrified_row = cursor.mogrify(row_format_string, t).decode()
@@ -33,14 +32,14 @@ class PostgresSaver:
 
     def insert_table(self, model_class: Type[Replicable], items: List[Replicable]):
         field_names = list(x.name for x in fields(model_class))
-        placeholders = ', '.join('%s' for _ in range(len(field_names)))
+        placeholders = ", ".join("%s" for _ in range(len(field_names)))
         row_format_string = f"({placeholders})"
 
         cursor = self.pg_conn.cursor()
         tuples = self.generate_mogrified_tuples(row_format_string, items, cursor)
 
-        all_rows = ','.join(tuples)
-        columns = ', '.join(field_names)
+        all_rows = ",".join(tuples)
+        columns = ", ".join(field_names)
         query = f"""INSERT INTO content.{model_class.target_table} ({columns})
                     VALUES {all_rows} on conflict do nothing
                     """
@@ -59,7 +58,7 @@ class SQLiteLoader:
 
     def get_model_items(self, model: Type[Replicable]):
         cursor = self.connection.cursor()
-        cursor.execute(f'SELECT * FROM {model.source_table}')
+        cursor.execute(f"SELECT * FROM {model.source_table}")
         result = [model(*item) for item in cursor]
         return result
 
@@ -79,15 +78,15 @@ def load_from_sqlite(connection: sqlite3.Connection, pg_conn: _connection):
     postgres_saver.save_all_data(data)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     dsl = {
-        'dbname': os.environ.get('DB_NAME'),
-        'user': os.environ.get('DB_USER'),
-        'password': os.environ.get('DB_PASSWORD'),
-        'host': os.environ.get('DB_HOST'),
-        'port': os.environ.get('DB_PORT')
+        "dbname": os.environ.get("DB_NAME"),
+        "user": os.environ.get("DB_USER"),
+        "password": os.environ.get("DB_PASSWORD"),
+        "host": os.environ.get("DB_HOST"),
+        "port": os.environ.get("DB_PORT"),
     }
-    sqlite_conn = sqlite3.connect('db.sqlite')
+    sqlite_conn = sqlite3.connect("db.sqlite")
     pg_conn = psycopg2.connect(**dsl, cursor_factory=DictCursor)
     with sqlite_conn, pg_conn:
         load_from_sqlite(sqlite_conn, pg_conn)

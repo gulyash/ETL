@@ -13,18 +13,20 @@ from postgres_to_es.state import JsonFileStorage, State
 
 def test_get_empty_state():
     with tempfile.NamedTemporaryFile() as f:
-        f.write(b'{}')
+        f.write(b"{}")
         f.seek(0)
 
         storage = JsonFileStorage(f.name)
         state = State(storage)
 
         try:
-            result = state.get_state('key')
+            result = state.get_state("key")
         except Exception as e:
-            assert False, f'По несуществующему ключу должен отдаваться None'
+            assert False, f"По несуществующему ключу должен отдаваться None"
 
-        assert result is None, 'Получение пустого состояния из файла произошло с ошибками'
+        assert (
+            result is None
+        ), "Получение пустого состояния из файла произошло с ошибками"
 
 
 def test_save_new_state():
@@ -33,16 +35,18 @@ def test_save_new_state():
     state = State(storage)
 
     try:
-        state.set_state('key', 123)
+        state.set_state("key", 123)
     except Exception as e:
-        assert False, f'Ошибка установки состояния: {e}'
+        assert False, f"Ошибка установки состояния: {e}"
 
     with open(file_name) as f:
         try:
             data = json.load(f)
         except:
-            assert False, 'Не удалось загрузить состояние из JSON'
-        assert data == {'key': 123}, 'Сохранить состояние в файл не удалось. Ожидались другие данные.'
+            assert False, "Не удалось загрузить состояние из JSON"
+        assert data == {
+            "key": 123
+        }, "Сохранить состояние в файл не удалось. Ожидались другие данные."
 
 
 def test_retrieve_existing_state():
@@ -53,7 +57,9 @@ def test_retrieve_existing_state():
         storage = JsonFileStorage(f.name)
         state = State(storage)
 
-        assert state.get_state('key') == 10, 'Достать правильное состояние из файла не удалось'
+        assert (
+            state.get_state("key") == 10
+        ), "Достать правильное состояние из файла не удалось"
 
 
 def test_save_state_and_retrieve():
@@ -61,7 +67,7 @@ def test_save_state_and_retrieve():
     storage = JsonFileStorage(file_name)
     state = State(storage)
 
-    state.set_state('key', 123)
+    state.set_state("key", 123)
 
     # Принудительно удаляем объекты
     del state
@@ -70,7 +76,9 @@ def test_save_state_and_retrieve():
     storage = JsonFileStorage(file_name)
     state = State(storage)
 
-    assert state.get_state('key') == 123, 'Сохранение состояния, а затем и его загрузка прошли неудачно'
+    assert (
+        state.get_state("key") == 123
+    ), "Сохранение состояния, а затем и его загрузка прошли неудачно"
 
 
 def platform_exc(func):
@@ -81,7 +89,7 @@ def platform_exc(func):
         except AssertionError as e:
             raise e
         except Exception as e:
-            assert False, f'Возникла ошибка: {repr(e)}'
+            assert False, f"Возникла ошибка: {repr(e)}"
 
     return inner
 

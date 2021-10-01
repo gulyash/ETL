@@ -1,6 +1,7 @@
 import datetime
 
 import psycopg2
+import requests
 from psycopg2.extras import DictCursor
 
 from config_reader import config
@@ -40,7 +41,17 @@ class Etl:
     def transform(self, extract):
         return [dict(row) for row in extract]
 
+    def _post_index(self):
+        with open("index.json", "r") as file:
+            index = file.read()
+        return requests.put(
+            "http://127.0.0.1:9200/movies",
+            data=index,
+            headers={"Content-Type": "application/json"},
+        )
+
     def load(self, transformed):
+        self._post_index()
         print("*insert to elastic...*")
         self.state.set_state("last_updated_at", datetime.datetime.now())
 

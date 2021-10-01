@@ -24,6 +24,4 @@ class Config(BaseModel):
     film_work_pg: PostgresSettings
 
 
-config = Config.parse_file('config.json')
-
-# print(config.film_work_pg.dsn.user)
+config = Config.parse_file("config.json")
