@@ -12,16 +12,13 @@ from state import State, JsonFileStorage
 class Etl:
     def __init__(self) -> None:
         self.config = config
-        self.pg_conn = psycopg2.connect(
-            **dict(self.config.film_work_pg.dsn), cursor_factory=DictCursor
-        )
         self.state = State(JsonFileStorage(self.config.film_work_pg.state_file_path))
         self._fetch_query = None
 
     def run(self):
-        extracted = self.extract()
-        transformed = self.transform(extracted)
-        self.load(transformed)
+        for extracted in self.extract():
+            transformed = self.transform(extracted)
+            self.load(transformed)
 
     def _get_update_time(self, default_value=datetime.datetime(1970, 1, 1)):
         return self.state.get_state("last_updated_at") or default_value
@@ -33,12 +30,21 @@ class Etl:
         return self._fetch_query
 
     @backoff()
-    def extract(self):
+    def extract(self, batch_size=100):
         query = self._get_guery()
         update_time = self._get_update_time()
-        cursor = self.pg_conn.cursor()
-        cursor.execute(query, (update_time,))
-        return cursor
+        pg_conn = psycopg2.connect(
+            **dict(self.config.film_work_pg.dsn), cursor_factory=DictCursor
+        )
+
+        with pg_conn.cursor() as cursor:
+            cursor.execute(query, (update_time,))
+            while True:
+                batch = cursor.fetchmany(batch_size)
+                if batch:
+                    yield batch
+                else: break
+        cursor.close()
 
     def transform(self, extract):
         return [dict(row) for row in extract]
@@ -55,7 +61,7 @@ class Etl:
     def load(self, transformed):
         self._post_index()
         print("*insert to elastic...*")
-        self.state.set_state("last_updated_at", datetime.datetime.now())
+        self.state.set_state("last_updated_at", datetime.datetime(1970, 1, 1))
 
 
 if __name__ == '__main__':
