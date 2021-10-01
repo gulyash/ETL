@@ -54,3 +54,5 @@ doc.html
 # container volumes
 static
 data
+
+/postgres_to_es/state.json
