@@ -19,12 +19,10 @@ def backoff(start_sleep_time=0.1, factor=2, border_sleep_time=10):
         @wraps(func)
         def inner(*args, **kwargs):
             n = 0
-            t = start_sleep_time
             while True:
                 try:
-                    func()
-                    break
-                except Exception:
+                    return func(*args, **kwargs)
+                except Exception as e:
                     time_interval = start_sleep_time * factor ** n
                     t = (
                         border_sleep_time
@@ -39,23 +37,3 @@ def backoff(start_sleep_time=0.1, factor=2, border_sleep_time=10):
         return inner
 
     return func_wrapper
-
-
-def yay_gen(ouch_count):
-    for _ in range(ouch_count):
-        yield Exception("ouch")
-    yield "Yay!"
-
-
-g = yay_gen(5)
-
-
-@backoff()
-def get_yay():
-    a = next(g)
-    if isinstance(a, Exception):
-        raise a
-    print(a)
-
-
-get_yay()
