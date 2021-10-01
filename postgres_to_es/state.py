@@ -2,11 +2,6 @@ import abc
 import json
 from typing import Any, Optional
 
-import psycopg2
-from psycopg2.extras import DictCursor
-
-from config_reader import config
-
 
 class BaseStorage:
     @abc.abstractmethod
@@ -40,19 +35,6 @@ class JsonFileStorage(BaseStorage):
             return result
         except FileNotFoundError:
             return {}
-
-
-class PostgresStorage(BaseStorage):
-    def __init__(self) -> None:
-        self.config = config
-        self.connection = psycopg2.connect(**dict(self.config.film_work_pg.dsn), cursor_factory=DictCursor)
-
-    def retrieve_state(self) -> dict:
-
-        pass
-
-    def save_state(self, state: dict) -> None:
-        pass
 
 
 class State:
