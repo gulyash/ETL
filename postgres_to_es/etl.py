@@ -1,8 +1,11 @@
 import datetime
+import json
+from typing import List, Generator
 
 import psycopg2
-import requests
-from psycopg2.extras import DictCursor
+from elasticsearch import Elasticsearch
+from elasticsearch.helpers import bulk
+from psycopg2.extras import DictCursor, DictRow
 
 from backoff import backoff
 from config_reader import config
@@ -14,13 +17,17 @@ class Etl:
         self.config = config
         self.state = State(JsonFileStorage(self.config.film_work_pg.state_file_path))
         self._fetch_query = None
+        self.es = Elasticsearch()
+        self.index_name = "movies"
 
     def run(self):
         for extracted in self.extract():
             transformed = self.transform(extracted)
             self.load(transformed)
 
-    def _get_update_time(self, default_value=datetime.datetime(1970, 1, 1)):
+    def _get_update_time(
+        self, default_value: datetime.datetime = datetime.datetime(1970, 1, 1)
+    ):
         return self.state.get_state("last_updated_at") or default_value
 
     def _get_guery(self):
@@ -30,7 +37,7 @@ class Etl:
         return self._fetch_query
 
     @backoff()
-    def extract(self, batch_size=100):
+    def extract(self) -> Generator[List[DictRow], None, None]:
         query = self._get_guery()
         update_time = self._get_update_time()
         pg_conn = psycopg2.connect(
@@ -40,29 +47,36 @@ class Etl:
         with pg_conn.cursor() as cursor:
             cursor.execute(query, (update_time,))
             while True:
-                batch = cursor.fetchmany(batch_size)
-                if batch:
-                    yield batch
-                else: break
+                batch = cursor.fetchmany(self.config.film_work_pg.limit)
+                if not batch:
+                    break
+                yield batch
         cursor.close()
 
-    def transform(self, extract):
-        return [dict(row) for row in extract]
+    def _transform_item(self, row: DictRow):
+        item = dict(row)
+        item.pop("updated_at")
+        return {
+            "_index": self.index_name,
+            "_id": item.pop("fw_id"),
+            **item
+        }
+
+    def transform(self, extract: List[DictRow]):
+        return [self._transform_item(row) for row in extract]
 
     def _post_index(self):
         with open("index.json", "r") as file:
-            index = file.read()
-        return requests.put(
-            "http://127.0.0.1:9200/movies",
-            data=index,
-            headers={"Content-Type": "application/json"},
-        )
+            index_body = json.load(file)
+        self.es.indices.create(index=self.index_name, body=index_body, ignore=400)
 
+    @backoff()
     def load(self, transformed):
         self._post_index()
         print("*insert to elastic...*")
+        a = bulk(self.es, transformed)
         self.state.set_state("last_updated_at", datetime.datetime(1970, 1, 1))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     Etl().run()
