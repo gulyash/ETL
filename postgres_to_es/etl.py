@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 import time
-from typing import List, Generator, Dict
+from typing import List, Generator, Dict, Tuple
 
 import psycopg2
 from elasticsearch import Elasticsearch
@@ -26,6 +26,7 @@ class Etl:
         self.state = State(JsonFileStorage(self.config.film_work_pg.state_file_path))
         self._fetch_query = None
         self.es = Elasticsearch(hosts=[self.config.elastic.elastic_host])
+        self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
 
     def run(self):
         """Run extract -> transform -> load in a loop."""
@@ -36,7 +37,7 @@ class Etl:
             time.sleep(self.config.film_work_pg.fetch_delay)
 
     def _get_last_update_time(
-        self, default_value: datetime.datetime = datetime.datetime(1970, 1, 1)
+        self, default_value: str = '2000-01-01T00:00:00.000000'
     ):
         """Fetch last updated time from config to start up from"""
         return self.state.get_state("last_updated_at") or default_value
@@ -82,10 +83,16 @@ class Etl:
             **item,
         }
 
-    def transform(self, extract: List[DictRow]):
+    def _get_update_time(self, last_item: DictRow) -> str:
+        """Get updated_at time of hte item in the format of a json-consumable string"""
+        last_datetime = dict(last_item)["updated_at"]
+        return last_datetime.strftime(self.json_date_format)
+
+    def transform(self, extract: List[DictRow]) -> Tuple[List[Dict], str]:
         """Prepare data for loading into ElasticSearch and get last item's updated_at time."""
-        last_item_time = dict(extract[-1])["updated_at"]
-        return [self._transform_item(row) for row in extract], last_item_time
+        last_item_time = self._get_update_time(extract[-1])
+        transformed = [self._transform_item(row) for row in extract]
+        return transformed, last_item_time
 
     def _post_index(self):
         """Create filmwork index in ElasticSearch.
@@ -97,7 +104,7 @@ class Etl:
         )
 
     @backoff()
-    def load(self, transformed: List[Dict], last_item_time: datetime.datetime):
+    def load(self, transformed: List[Dict], last_item_time: str):
         """Insert data into ElasticSearch and save new state on success."""
         self._post_index()
         bulk(self.es, transformed)
