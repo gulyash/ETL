@@ -25,7 +25,6 @@ class Etl:
         self.state = State(JsonFileStorage(self.config.film_work_pg.state_file_path))
         self._fetch_query = None
         self.es = Elasticsearch(hosts=[self.config.elastic.elastic_host])
-        self.index_name = "movies"
 
     def run(self):
         while True:
@@ -54,7 +53,7 @@ class Etl:
         )
 
         with pg_conn.cursor() as cursor:
-            # When we update genre or a person, updated_at column of related movies gets a new value.
+            # When we update genre or a person `updated_at` column of related movies gets a new value.
             # This allows us to fetch everything we need using the same query.
             # See signals.py in Django application for reference.
             cursor.execute(query, (update_time,))
@@ -68,7 +67,7 @@ class Etl:
     def _transform_item(self, row: DictRow):
         item = dict(row)
         del item["updated_at"]
-        return {"_index": self.index_name, "_id": item.pop("fw_id"), **item}
+        return {"_index": self.config.elastic.index_name, "_id": item.pop("fw_id"), **item}
 
     def transform(self, extract: List[DictRow]):
         return [self._transform_item(row) for row in extract]
@@ -76,7 +75,7 @@ class Etl:
     def _post_index(self):
         with open(self.config.elastic.index_json_path, "r") as file:
             index_body = json.load(file)
-        self.es.indices.create(index=self.index_name, body=index_body, ignore=400)
+        self.es.indices.create(index=self.config.elastic.index_name, body=index_body, ignore=400)
 
     @backoff()
     def load(self, transformed):
@@ -84,7 +83,7 @@ class Etl:
         bulk(self.es, transformed)
         new_time = datetime.datetime.utcnow()
         self.state.set_state("last_updated_at", new_time)
-        logging.info(f"Batch of {len(transformed)} movies uploaded.")
+        logging.info(f"Batch of {len(transformed)} movies uploaded to elasticsearch.")
 
 
 if __name__ == "__main__":

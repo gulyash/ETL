@@ -20,6 +20,7 @@ class PostgresSettings(BaseModel):
     sql_query_path: str
 
 class Elastic(BaseModel):
+    index_name: str
     index_json_path: str
     elastic_host: str
 
