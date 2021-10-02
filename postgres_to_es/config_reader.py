@@ -17,7 +17,7 @@ class PostgresSettings(BaseModel):
     state_field: List[str]
     fetch_delay: Optional[float]
     state_file_path: Optional[str]
-    sql_query: str
+    sql_query_path: str
 
 
 class Config(BaseModel):

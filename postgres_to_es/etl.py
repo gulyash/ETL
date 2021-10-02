@@ -1,5 +1,6 @@
 import datetime
 import json
+import time
 from typing import List, Generator
 
 import psycopg2
@@ -21,9 +22,11 @@ class Etl:
         self.index_name = "movies"
 
     def run(self):
-        for extracted in self.extract():
-            transformed = self.transform(extracted)
-            self.load(transformed)
+        while True:
+            for extracted in self.extract():
+                transformed = self.transform(extracted)
+                self.load(transformed)
+            time.sleep(self.config.film_work_pg.fetch_delay)
 
     def _get_update_time(
         self, default_value: datetime.datetime = datetime.datetime(1970, 1, 1)
@@ -32,7 +35,7 @@ class Etl:
 
     def _get_guery(self):
         if not self._fetch_query:
-            with open("postgres_query.sql", "r") as query_file:
+            with open(self.config.film_work_pg.sql_query_path, "r") as query_file:
                 self._fetch_query = query_file.read()
         return self._fetch_query
 
@@ -73,9 +76,9 @@ class Etl:
     @backoff()
     def load(self, transformed):
         self._post_index()
-        print("*insert to elastic...*")
-        a = bulk(self.es, transformed)
-        self.state.set_state("last_updated_at", datetime.datetime(1970, 1, 1))
+        bulk(self.es, transformed)
+        new_time = datetime.datetime.utcnow()
+        self.state.set_state("last_updated_at", new_time)
 
 
 if __name__ == "__main__":
