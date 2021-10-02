@@ -1,5 +1,7 @@
 import datetime
+from typing import Sequence
 
+from django.db import connection
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 
@@ -12,11 +14,12 @@ def congratulatory(sender, instance, created, **kwargs):
         print(f"У {instance.full_name} сегодня день рождения! 🥳")
 
 
-def touch_movies(filmworks):
-    q = "update content.film_work set updated_at = %s where id in %s"
-    t = datetime.datetime.utcnow()
-    ids = tuple(str(item.id) for item in filmworks)
-    Filmwork.objects.raw(q, (t, ids))
+def touch_movies(film_works: Sequence[Filmwork]):
+    """Set updated_at field of provided film works to current utc time"""
+    query = "update content.film_work set updated_at = %s where id in %s"
+    filmwork_ids = tuple(str(item.id) for item in film_works)
+    with connection.cursor() as cursor:
+        cursor.execute(query, (datetime.datetime.utcnow(), filmwork_ids))
 
 
 @receiver(post_save, sender="movies.Genre")
