@@ -13,14 +13,15 @@ class DSNSettings(BaseModel):
 class PostgresSettings(BaseModel):
     dsn: DSNSettings
     limit: Optional[int]
-    order_field: List[str]
-    state_field: List[str]
+    order_field: str
+    state_field: str
     fetch_delay: Optional[float]
     state_file_path: Optional[str]
     sql_query_path: FilePath
 
 
 class Elastic(BaseModel):
+    index_name: str
     index_json_path: FilePath
     elastic_host: str
 

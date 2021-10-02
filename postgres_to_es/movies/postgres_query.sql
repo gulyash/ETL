@@ -1,4 +1,4 @@
-SELECT fw.id                                                                                                     as fw_id,
+SELECT fw.id                                                                                                     as id,
        fw.title,
        fw.description,
        fw.rating                                                                                                 as imdb_rating,
