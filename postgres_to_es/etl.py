@@ -99,7 +99,11 @@ class Etl:
         self._post_index()
         bulk(self.es, transformed)
         self.state.set_state(self.config.postgres.state_field, last_item_time)
-        logging.info("Batch of %s %s uploaded to elasticsearch.", len(transformed), self.items_name)
+        logging.info(
+            "Batch of %s %s uploaded to elasticsearch.",
+            len(transformed),
+            self.items_name,
+        )
 
     def _post_index(self):
         """Create filmwork index in ElasticSearch.
