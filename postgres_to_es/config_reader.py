@@ -18,6 +18,7 @@ class PostgresSettings(BaseModel):
     fetch_delay: Optional[float]
     state_file_path: Optional[str]
     sql_query_path: str
+    index_json_path: str
 
 
 class Config(BaseModel):

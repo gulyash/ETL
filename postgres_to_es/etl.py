@@ -58,7 +58,7 @@ class Etl:
 
     def _transform_item(self, row: DictRow):
         item = dict(row)
-        item.pop("updated_at")
+        del item["updated_at"]
         return {
             "_index": self.index_name,
             "_id": item.pop("fw_id"),
@@ -69,7 +69,7 @@ class Etl:
         return [self._transform_item(row) for row in extract]
 
     def _post_index(self):
-        with open("index.json", "r") as file:
+        with open(self.config.film_work_pg.index_json_path, "r") as file:
             index_body = json.load(file)
         self.es.indices.create(index=self.index_name, body=index_body, ignore=400)
 
