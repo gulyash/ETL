@@ -21,13 +21,12 @@ class PostgresSettings(BaseModel):
 
 
 class Elastic(BaseModel):
-    index_name: str
     index_json_path: FilePath
     elastic_host: str
 
 
 class Config(BaseModel):
-    film_work_pg: PostgresSettings
+    postgres: PostgresSettings
     elastic: Elastic
 
 

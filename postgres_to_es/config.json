@@ -1,5 +1,5 @@
 {
-  "film_work_pg": {
+  "postgres": {
     "dsn": {
       "dbname": "movies_database",
       "user": "postgres",
@@ -19,7 +19,6 @@
     "sql_query_path": "extras/postgres_query.sql"
   },
   "elastic": {
-    "index_name": "movies",
     "index_json_path": "extras/create_index.json",
     "elastic_host": "es01-test"
   }

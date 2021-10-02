@@ -1,4 +1,3 @@
-import datetime
 import json
 import logging
 import time
@@ -17,12 +16,14 @@ from state import State, JsonFileStorage
 logging.basicConfig(level=logging.INFO)
 
 
-class Etl:
+class MovieEtl:
     """Extract movies from PostgreSQL database and load them into ElasticSearch index"""
 
-    def __init__(self) -> None:
+    def __init__(self, table_name, index_name) -> None:
         """Initiate ETL process with config values"""
-        self.state = State(JsonFileStorage(config.film_work_pg.state_file_path))
+        self.table_name = table_name
+        self.index_name = index_name
+        self.state = State(JsonFileStorage(config.postgres.state_file_path))
         self._fetch_query = None
         self._index_body = None
         self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
@@ -35,7 +36,7 @@ class Etl:
             for extracted in self.extract():
                 transformed, last_item_time = self.transform(extracted)
                 self.load(transformed, last_item_time)
-            time.sleep(config.film_work_pg.fetch_delay)
+            time.sleep(config.postgres.fetch_delay)
 
     def _get_last_update_time(self, default_value: str = "2000-01-01T00:00:00.000000"):
         """Fetch last updated time from config to start up from"""
@@ -44,7 +45,8 @@ class Etl:
     def _get_guery(self):
         """Load PostgreSQL filmwork query from file or use 'cached' one."""
         if not self._fetch_query:
-            with open(config.film_work_pg.sql_query_path, "r") as query_file:
+            # file path validity is checked upon config validation
+            with open(config.postgres.sql_query_path, "r") as query_file:
                 self._fetch_query = query_file.read()
         return self._fetch_query
 
@@ -52,7 +54,7 @@ class Etl:
     def get_connection(self):
         """Obtain PostgreSQL database connection using a backoff."""
         return psycopg2.connect(
-            **dict(config.film_work_pg.dsn), cursor_factory=DictCursor
+            **dict(config.postgres.dsn), cursor_factory=DictCursor
         )
 
     def extract(self) -> Generator[List[DictRow], None, None]:
@@ -66,7 +68,7 @@ class Etl:
             # See signals.py in Django application for reference.
             cursor.execute(query, (update_time,))
             while True:
-                batch = cursor.fetchmany(config.film_work_pg.limit)
+                batch = cursor.fetchmany(config.postgres.limit)
                 if not batch:
                     break
                 yield batch
@@ -77,7 +79,7 @@ class Etl:
         item = dict(row)
         del item["updated_at"]
         return {
-            "_index": config.elastic.index_name,
+            "_index": self.index_name,
             "_id": item.pop("fw_id"),
             **item,
         }
@@ -101,7 +103,7 @@ class Etl:
                 self._index_body = json.load(file)
 
         self.es.indices.create(
-            index=config.elastic.index_name, body=self._index_body, ignore=400
+            index=self.index_name, body=self._index_body, ignore=400
         )
 
     @backoff()
@@ -114,4 +116,4 @@ class Etl:
 
 
 if __name__ == "__main__":
-    Etl().run()
+    MovieEtl("film_work", "movies").run()
