@@ -29,15 +29,14 @@ class Etl:
 
     def run(self):
         """Run extract -> transform -> load in a loop."""
+        logging.info("Replication started.")
         while True:
             for extracted in self.extract():
                 transformed, last_item_time = self.transform(extracted)
                 self.load(transformed, last_item_time)
             time.sleep(config.film_work_pg.fetch_delay)
 
-    def _get_last_update_time(
-        self, default_value: str = '2000-01-01T00:00:00.000000'
-    ):
+    def _get_last_update_time(self, default_value: str = "2000-01-01T00:00:00.000000"):
         """Fetch last updated time from config to start up from"""
         return self.state.get_state("last_updated_at") or default_value
 
@@ -108,7 +107,7 @@ class Etl:
         self._post_index()
         bulk(self.es, transformed)
         self.state.set_state("last_updated_at", last_item_time)
-        logging.info(f"Batch of {len(transformed)} movies uploaded to elasticsearch.")
+        logging.info("Batch of %s movies uploaded to elasticsearch.", len(transformed))
 
 
 if __name__ == "__main__":
