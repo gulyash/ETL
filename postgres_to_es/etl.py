@@ -48,6 +48,9 @@ class Etl:
         )
 
         with pg_conn.cursor() as cursor:
+            # When we update genre or a person, updated_at column of related movies gets a new value.
+            # This allows us to fetch everything we need using the same query.
+            # See signals.py in Django application for reference.
             cursor.execute(query, (update_time,))
             while True:
                 batch = cursor.fetchmany(self.config.film_work_pg.limit)
