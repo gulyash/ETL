@@ -18,24 +18,27 @@ logging.basicConfig(level=logging.INFO)
 
 
 class Etl:
-    """"""
+    """Extract movies from PostgreSQL database and load them into ElasticSearch index"""
 
     def __init__(self) -> None:
+        """Initiate ETL process with config values"""
         self.config = config
         self.state = State(JsonFileStorage(self.config.film_work_pg.state_file_path))
         self._fetch_query = None
         self.es = Elasticsearch(hosts=[self.config.elastic.elastic_host])
 
     def run(self):
+        """Run extract -> transform -> load in a loop."""
         while True:
             for extracted in self.extract():
-                transformed = self.transform(extracted)
-                self.load(transformed)
+                transformed, last_item_time = self.transform(extracted)
+                self.load(transformed, last_item_time)
             time.sleep(self.config.film_work_pg.fetch_delay)
 
-    def _get_update_time(
+    def _get_last_update_time(
         self, default_value: datetime.datetime = datetime.datetime(1970, 1, 1)
     ):
+        """Last updated time"""
         return self.state.get_state("last_updated_at") or default_value
 
     def _get_guery(self):
@@ -45,13 +48,15 @@ class Etl:
         return self._fetch_query
 
     @backoff()
-    def extract(self) -> Generator[List[DictRow], None, None]:
-        query = self._get_guery()
-        update_time = self._get_update_time()
-        pg_conn = psycopg2.connect(
+    def get_connection(self):
+        return psycopg2.connect(
             **dict(self.config.film_work_pg.dsn), cursor_factory=DictCursor
         )
 
+    def extract(self) -> Generator[List[DictRow], None, None]:
+        query = self._get_guery()
+        update_time = self._get_last_update_time()
+        pg_conn = self.get_connection()
         with pg_conn.cursor() as cursor:
             # When we update genre or a person `updated_at` column of related movies gets a new value.
             # This allows us to fetch everything we need using the same query.
@@ -70,7 +75,8 @@ class Etl:
         return {"_index": self.config.elastic.index_name, "_id": item.pop("fw_id"), **item}
 
     def transform(self, extract: List[DictRow]):
-        return [self._transform_item(row) for row in extract]
+        last_item_time = dict(extract[-1])['updated_at']
+        return [self._transform_item(row) for row in extract], last_item_time
 
     def _post_index(self):
         with open(self.config.elastic.index_json_path, "r") as file:
@@ -78,11 +84,10 @@ class Etl:
         self.es.indices.create(index=self.config.elastic.index_name, body=index_body, ignore=400)
 
     @backoff()
-    def load(self, transformed):
+    def load(self, transformed, last_item_time):
         self._post_index()
         bulk(self.es, transformed)
-        new_time = datetime.datetime.utcnow()
-        self.state.set_state("last_updated_at", new_time)
+        self.state.set_state("last_updated_at", last_item_time)
         logging.info(f"Batch of {len(transformed)} movies uploaded to elasticsearch.")
 
 

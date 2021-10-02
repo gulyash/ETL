@@ -4,7 +4,7 @@
       "dbname": "movies_database",
       "user": "postgres",
       "password": 1234,
-      "host": "postgres",
+      "host": "localhost",
       "port": 5432
     },
     "state_file_path": "state.json",
@@ -21,6 +21,6 @@
   "elastic": {
     "index_name": "movies",
     "index_json_path": "create_index.json",
-    "elastic_host": "es01-test"
+    "elastic_host": "localhost"
   }
 }
