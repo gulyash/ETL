@@ -24,6 +24,7 @@ class Etl:
         """Initiate ETL process with config values"""
         self.state = State(JsonFileStorage(config.film_work_pg.state_file_path))
         self._fetch_query = None
+        self._index_body = None
         self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
 
@@ -95,10 +96,12 @@ class Etl:
     def _post_index(self):
         """Create filmwork index in ElasticSearch.
         No error is raised if index already exists."""
-        with open(config.elastic.index_json_path, "r") as file:
-            index_body = json.load(file)
+        if not self._index_body:
+            with open(config.elastic.index_json_path, "r") as file:
+                self._index_body = json.load(file)
+
         self.es.indices.create(
-            index=config.elastic.index_name, body=index_body, ignore=400
+            index=config.elastic.index_name, body=self._index_body, ignore=400
         )
 
     @backoff()
