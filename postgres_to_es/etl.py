@@ -22,10 +22,9 @@ class Etl:
 
     def __init__(self) -> None:
         """Initiate ETL process with config values"""
-        self.config = config
-        self.state = State(JsonFileStorage(self.config.film_work_pg.state_file_path))
+        self.state = State(JsonFileStorage(config.film_work_pg.state_file_path))
         self._fetch_query = None
-        self.es = Elasticsearch(hosts=[self.config.elastic.elastic_host])
+        self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
 
     def run(self):
@@ -34,7 +33,7 @@ class Etl:
             for extracted in self.extract():
                 transformed, last_item_time = self.transform(extracted)
                 self.load(transformed, last_item_time)
-            time.sleep(self.config.film_work_pg.fetch_delay)
+            time.sleep(config.film_work_pg.fetch_delay)
 
     def _get_last_update_time(
         self, default_value: str = '2000-01-01T00:00:00.000000'
@@ -45,7 +44,7 @@ class Etl:
     def _get_guery(self):
         """Load PostgreSQL filmwork query from file or use 'cached' one."""
         if not self._fetch_query:
-            with open(self.config.film_work_pg.sql_query_path, "r") as query_file:
+            with open(config.film_work_pg.sql_query_path, "r") as query_file:
                 self._fetch_query = query_file.read()
         return self._fetch_query
 
@@ -53,7 +52,7 @@ class Etl:
     def get_connection(self):
         """Obtain PostgreSQL database connection using a backoff."""
         return psycopg2.connect(
-            **dict(self.config.film_work_pg.dsn), cursor_factory=DictCursor
+            **dict(config.film_work_pg.dsn), cursor_factory=DictCursor
         )
 
     def extract(self) -> Generator[List[DictRow], None, None]:
@@ -67,7 +66,7 @@ class Etl:
             # See signals.py in Django application for reference.
             cursor.execute(query, (update_time,))
             while True:
-                batch = cursor.fetchmany(self.config.film_work_pg.limit)
+                batch = cursor.fetchmany(config.film_work_pg.limit)
                 if not batch:
                     break
                 yield batch
@@ -78,7 +77,7 @@ class Etl:
         item = dict(row)
         del item["updated_at"]
         return {
-            "_index": self.config.elastic.index_name,
+            "_index": config.elastic.index_name,
             "_id": item.pop("fw_id"),
             **item,
         }
@@ -97,10 +96,10 @@ class Etl:
     def _post_index(self):
         """Create filmwork index in ElasticSearch.
         No error is raised if index already exists."""
-        with open(self.config.elastic.index_json_path, "r") as file:
+        with open(config.elastic.index_json_path, "r") as file:
             index_body = json.load(file)
         self.es.indices.create(
-            index=self.config.elastic.index_name, body=index_body, ignore=400
+            index=config.elastic.index_name, body=index_body, ignore=400
         )
 
     @backoff()
