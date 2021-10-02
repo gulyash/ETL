@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, FilePath
 
 
 class DSNSettings(BaseModel):
@@ -17,12 +17,12 @@ class PostgresSettings(BaseModel):
     state_field: List[str]
     fetch_delay: Optional[float]
     state_file_path: Optional[str]
-    sql_query_path: str
+    sql_query_path: FilePath
 
 
 class Elastic(BaseModel):
     index_name: str
-    index_json_path: str
+    index_json_path: FilePath
     elastic_host: str
 
 
