@@ -7,7 +7,7 @@
       "host": "localhost",
       "port": 5432
     },
-    "state_file_path": "state.json",
+    "state_file_path": "extras/state.json",
     "fetch_delay": 1,
     "limit": 100,
     "order_field": [
@@ -16,11 +16,11 @@
     "state_field": [
       "updated_at"
     ],
-    "sql_query_path": "postgres_query.sql"
+    "sql_query_path": "extras/postgres_query.sql"
   },
   "elastic": {
     "index_name": "movies",
-    "index_json_path": "create_index.json",
+    "index_json_path": "extras/create_index.json",
     "elastic_host": "localhost"
   }
 }

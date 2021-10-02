@@ -55,4 +55,4 @@ doc.html
 static
 data
 
-/postgres_to_es/state.json
+/postgres_to_es/extras/state.json
