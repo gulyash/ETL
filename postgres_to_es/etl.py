@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from pathlib import Path
 from typing import List, Generator, Dict, Tuple
 
 import psycopg2
@@ -9,7 +10,7 @@ from elasticsearch.helpers import bulk
 from psycopg2.extras import DictCursor, DictRow
 
 from backoff import backoff
-from config_reader import config
+from config_reader import Config
 from state import State, JsonFileStorage
 
 
@@ -23,11 +24,12 @@ class MovieEtl:
         """Initiate ETL process with config values"""
         self.table_name = table_name
         self.index_name = index_name
-        self.state = State(JsonFileStorage(config.postgres.state_file_path))
         self._fetch_query = None
         self._index_body = None
-        self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
+        self.config = Config.parse_file("movie/config.json")
+        self.state = State(JsonFileStorage(self.config.postgres.state_file_path))
+        self.es = Elasticsearch(hosts=[self.config.elastic.elastic_host])
 
     def run(self):
         """Run extract -> transform -> load in a loop."""
@@ -36,17 +38,17 @@ class MovieEtl:
             for extracted in self.extract():
                 transformed, last_item_time = self.transform(extracted)
                 self.load(transformed, last_item_time)
-            time.sleep(config.postgres.fetch_delay)
+            time.sleep(self.config.postgres.fetch_delay)
 
     def _get_last_update_time(self, default_value: str = "2000-01-01T00:00:00.000000"):
         """Fetch last updated time from config to start up from"""
         return self.state.get_state("last_updated_at") or default_value
 
-    def _get_guery(self):
+    def _get_guery(self, query_path: Path):
         """Load PostgreSQL filmwork query from file or use 'cached' one."""
         if not self._fetch_query:
             # file path validity is checked upon config validation
-            with open(config.postgres.sql_query_path, "r") as query_file:
+            with open(query_path, "r") as query_file:
                 self._fetch_query = query_file.read()
         return self._fetch_query
 
@@ -54,12 +56,12 @@ class MovieEtl:
     def get_connection(self):
         """Obtain PostgreSQL database connection using a backoff."""
         return psycopg2.connect(
-            **dict(config.postgres.dsn), cursor_factory=DictCursor
+            **dict(self.config.postgres.dsn), cursor_factory=DictCursor
         )
 
     def extract(self) -> Generator[List[DictRow], None, None]:
         """Fetch movies data from PostgreSQL in batches"""
-        query = self._get_guery()
+        query = self._get_guery(self.config.postgres.sql_query_path)
         update_time = self._get_last_update_time()
         pg_conn = self.get_connection()
         with pg_conn.cursor() as cursor:
@@ -68,7 +70,7 @@ class MovieEtl:
             # See signals.py in Django application for reference.
             cursor.execute(query, (update_time,))
             while True:
-                batch = cursor.fetchmany(config.postgres.limit)
+                batch = cursor.fetchmany(self.config.postgres.limit)
                 if not batch:
                     break
                 yield batch
@@ -99,7 +101,7 @@ class MovieEtl:
         """Create filmwork index in ElasticSearch.
         No error is raised if index already exists."""
         if not self._index_body:
-            with open(config.elastic.index_json_path, "r") as file:
+            with open(self.config.elastic.index_json_path, "r") as file:
                 self._index_body = json.load(file)
 
         self.es.indices.create(

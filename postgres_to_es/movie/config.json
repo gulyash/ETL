@@ -7,7 +7,7 @@
       "host": "postgres",
       "port": 5432
     },
-    "state_file_path": "extras/state.json",
+    "state_file_path": "movie/state.json",
     "fetch_delay": 1,
     "limit": 100,
     "order_field": [
@@ -16,10 +16,10 @@
     "state_field": [
       "updated_at"
     ],
-    "sql_query_path": "extras/postgres_query.sql"
+    "sql_query_path": "movie/postgres_query.sql"
   },
   "elastic": {
-    "index_json_path": "extras/create_index.json",
+    "index_json_path": "movie/index_body.json",
     "elastic_host": "es01-test"
   }
 }
