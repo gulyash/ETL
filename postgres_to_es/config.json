@@ -4,15 +4,22 @@
       "dbname": "movies_database",
       "user": "postgres",
       "password": 1234,
-      "host": "127.0.0.1",
+      "host": "postgres",
       "port": 5432
     },
     "state_file_path": "state.json",
     "fetch_delay": 1,
     "limit": 100,
-    "order_field": ["updated_at"],
-    "state_field": ["updated_at"],
-    "sql_query_path": "postgres_query.sql",
-    "index_json_path": "create_index.json"
+    "order_field": [
+      "updated_at"
+    ],
+    "state_field": [
+      "updated_at"
+    ],
+    "sql_query_path": "postgres_query.sql"
+  },
+  "elastic": {
+    "index_json_path": "create_index.json",
+    "elastic_host": "es01-test"
   }
 }

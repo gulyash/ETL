@@ -18,11 +18,13 @@ class PostgresSettings(BaseModel):
     fetch_delay: Optional[float]
     state_file_path: Optional[str]
     sql_query_path: str
-    index_json_path: str
 
+class Elastic(BaseModel):
+    index_json_path: str
+    elastic_host: str
 
 class Config(BaseModel):
     film_work_pg: PostgresSettings
-
+    elastic: Elastic
 
 config = Config.parse_file("config.json")

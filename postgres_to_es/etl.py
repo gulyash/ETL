@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import time
 from typing import List, Generator
 
@@ -13,12 +14,17 @@ from config_reader import config
 from state import State, JsonFileStorage
 
 
+logging.basicConfig(level=logging.INFO)
+
+
 class Etl:
+    """"""
+
     def __init__(self) -> None:
         self.config = config
         self.state = State(JsonFileStorage(self.config.film_work_pg.state_file_path))
         self._fetch_query = None
-        self.es = Elasticsearch()
+        self.es = Elasticsearch(hosts=[self.config.elastic.elastic_host])
         self.index_name = "movies"
 
     def run(self):
@@ -62,17 +68,13 @@ class Etl:
     def _transform_item(self, row: DictRow):
         item = dict(row)
         del item["updated_at"]
-        return {
-            "_index": self.index_name,
-            "_id": item.pop("fw_id"),
-            **item
-        }
+        return {"_index": self.index_name, "_id": item.pop("fw_id"), **item}
 
     def transform(self, extract: List[DictRow]):
         return [self._transform_item(row) for row in extract]
 
     def _post_index(self):
-        with open(self.config.film_work_pg.index_json_path, "r") as file:
+        with open(self.config.elastic.index_json_path, "r") as file:
             index_body = json.load(file)
         self.es.indices.create(index=self.index_name, body=index_body, ignore=400)
 
@@ -82,6 +84,7 @@ class Etl:
         bulk(self.es, transformed)
         new_time = datetime.datetime.utcnow()
         self.state.set_state("last_updated_at", new_time)
+        logging.info(f"Batch of {len(transformed)} movies uploaded.")
 
 
 if __name__ == "__main__":
