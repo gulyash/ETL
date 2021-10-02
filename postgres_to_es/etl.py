@@ -13,12 +13,14 @@ from backoff import backoff
 from config_reader import Config
 from state import State, JsonFileStorage
 
-
 logging.basicConfig(level=logging.INFO)
 
 
 class Etl:
+    """Generic Etl class for item replication from PostgreSQL database to ElasticSearch index"""
+
     def __init__(self, config: Config, items_name: str) -> None:
+        """Initiate ETL process with config values"""
         self.items_name = items_name
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
         self._fetch_query = None
@@ -121,9 +123,9 @@ class MovieEtl(Etl):
     """Extract movies from PostgreSQL database and load them into ElasticSearch index"""
 
     def __init__(self) -> None:
-        """Initiate ETL process with config values"""
+        """Specifies config file and item name for generic ETL"""
         config = Config.parse_file("movies/config.json")
-        super().__init__(config, "movies")
+        super().__init__(config=config, items_name="movies")
 
 
 if __name__ == "__main__":
