@@ -32,7 +32,9 @@ def backoff(start_sleep_time=0.1, factor=2, border_sleep_time=10):
                         if time_interval >= border_sleep_time
                         else time_interval
                     )
-                    logging.warning(f"Oh no, an error! I guess I'll take a {t} sec nap...")
+                    logging.warning(
+                        f"Oh no, an error! I guess I'll take a {t} sec nap..."
+                    )
                     time.sleep(t)
                     n += 1
                     continue
