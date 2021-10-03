@@ -1,7 +1,7 @@
 movies_query = """
 SELECT fw.id                                                                                                     as id,
-       fw.title,
-       fw.description,
+       fw.title                                                                                                  as title,
+       fw.description                                                                                            as description,
        fw.rating                                                                                                 as imdb_rating,
        ARRAY_AGG(DISTINCT g.name)                                                                                AS genre,
        ARRAY_AGG(DISTINCT p.full_name) FILTER (WHERE pfw.role = 'director')                                      AS director,
