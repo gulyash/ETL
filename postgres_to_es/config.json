@@ -10,8 +10,6 @@
     "state_file_path": "movies/state.json",
     "fetch_delay": 1,
     "limit": 100,
-    "order_field": "updated_at",
-    "state_field": "updated_at",
     "sql_query_path": "movies/postgres_query.sql"
   },
   "elastic": {

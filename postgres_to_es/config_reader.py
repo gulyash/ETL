@@ -13,8 +13,6 @@ class DSNSettings(BaseModel):
 class PostgresSettings(BaseModel):
     dsn: DSNSettings
     limit: Optional[int]
-    order_field: str
-    state_field: str
     fetch_delay: Optional[float]
     state_file_path: Optional[str]
     sql_query_path: FilePath

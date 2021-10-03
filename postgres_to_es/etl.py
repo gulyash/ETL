@@ -25,6 +25,7 @@ class Etl:
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
         self._fetch_query = None
         self._index_body = None
+        self.order_field = self.state_field = "updated_at"
         self.state = State(JsonFileStorage(config.postgres.state_file_path))
         self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
 
@@ -34,8 +35,8 @@ class Etl:
         while True:
             for extracted in self.extract():
                 transformed, last_item_time = self.transform(extracted)
-                self.load(transformed, last_item_time)
-                self.state.set_state(config.postgres.state_field, last_item_time)
+                self.load(transformed)
+                self.state.set_state(self.state_field, last_item_time)
                 time.sleep(config.postgres.fetch_delay)
 
     def extract(self) -> Generator[List[DictRow], None, None]:
@@ -65,7 +66,7 @@ class Etl:
 
     def _get_last_update_time(self, default_value: str = "2000-01-01T00:00:00.000000"):
         """Fetch last updated time from config to start up from"""
-        return self.state.get_state(config.postgres.state_field) or default_value
+        return self.state.get_state(self.state_field) or default_value
 
     @backoff()
     def get_connection(self):
@@ -83,7 +84,7 @@ class Etl:
     def _transform_item(self, row: DictRow):
         """Convert DictRow into ElasticSearch consumable dictionary."""
         item = dict(row)
-        del item[config.postgres.order_field]
+        del item[self.order_field]
         return {
             "_index": config.elastic.index_name,
             "_id": item.pop("id"),
@@ -92,7 +93,7 @@ class Etl:
 
     def _get_update_time(self, last_item: DictRow) -> str:
         """Get `updated_at` of the item in the format of a json-consumable string"""
-        last_datetime = dict(last_item)[config.postgres.order_field]
+        last_datetime = dict(last_item)[self.order_field]
         return last_datetime.strftime(self.json_date_format)
 
     @backoff()
