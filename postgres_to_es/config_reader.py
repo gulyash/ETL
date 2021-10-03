@@ -29,3 +29,6 @@ class Elastic(BaseModel):
 class Config(BaseModel):
     postgres: PostgresSettings
     elastic: Elastic
+
+
+config = Config.parse_file("config.json")

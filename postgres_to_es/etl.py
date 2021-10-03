@@ -10,7 +10,7 @@ from elasticsearch.helpers import bulk
 from psycopg2.extras import DictCursor, DictRow
 
 from backoff import backoff
-from config_reader import Config
+from config_reader import config
 from state import State, JsonFileStorage
 
 logging.basicConfig(level=logging.INFO)
@@ -19,15 +19,14 @@ logging.basicConfig(level=logging.INFO)
 class Etl:
     """Generic Etl class for item replication from PostgreSQL database to ElasticSearch index"""
 
-    def __init__(self, config: Config, items_name: str) -> None:
+    def __init__(self, items_name: str) -> None:
         """Initiate ETL process with config values"""
         self.items_name = items_name
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
         self._fetch_query = None
         self._index_body = None
-        self.config = config
-        self.state = State(JsonFileStorage(self.config.postgres.state_file_path))
-        self.es = Elasticsearch(hosts=[self.config.elastic.elastic_host])
+        self.state = State(JsonFileStorage(config.postgres.state_file_path))
+        self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
 
     def run(self):
         """Run extract -> transform -> load in a loop."""
@@ -36,11 +35,12 @@ class Etl:
             for extracted in self.extract():
                 transformed, last_item_time = self.transform(extracted)
                 self.load(transformed, last_item_time)
-            time.sleep(self.config.postgres.fetch_delay)
+                self.state.set_state(config.postgres.state_field, last_item_time)
+                time.sleep(config.postgres.fetch_delay)
 
     def extract(self) -> Generator[List[DictRow], None, None]:
         """Fetch movies data from PostgreSQL in batches"""
-        query = self._get_guery(self.config.postgres.sql_query_path)
+        query = self._get_guery(config.postgres.sql_query_path)
         update_time = self._get_last_update_time()
         pg_conn = self.get_connection()
         with pg_conn.cursor() as cursor:
@@ -49,14 +49,14 @@ class Etl:
             # See signals.py in Django application for reference.
             cursor.execute(query, (update_time,))
             while True:
-                batch = cursor.fetchmany(self.config.postgres.limit)
+                batch = cursor.fetchmany(config.postgres.limit)
                 if not batch:
                     break
                 yield batch
         cursor.close()
 
     def _get_guery(self, query_path: Path):
-        """Load PostgreSQL filmwork query from file or use 'cached' one."""
+        """Load PostgreSQL query from file or use 'cached' one."""
         if not self._fetch_query:
             # file path validity is checked upon config validation
             with open(query_path, "r") as query_file:
@@ -65,13 +65,13 @@ class Etl:
 
     def _get_last_update_time(self, default_value: str = "2000-01-01T00:00:00.000000"):
         """Fetch last updated time from config to start up from"""
-        return self.state.get_state(self.config.postgres.state_field) or default_value
+        return self.state.get_state(config.postgres.state_field) or default_value
 
     @backoff()
     def get_connection(self):
         """Obtain PostgreSQL database connection using a backoff."""
         return psycopg2.connect(
-            **dict(self.config.postgres.dsn), cursor_factory=DictCursor
+            **dict(config.postgres.dsn), cursor_factory=DictCursor
         )
 
     def transform(self, extract: List[DictRow]) -> Tuple[List[Dict], str]:
@@ -83,24 +83,23 @@ class Etl:
     def _transform_item(self, row: DictRow):
         """Convert DictRow into ElasticSearch consumable dictionary."""
         item = dict(row)
-        del item[self.config.postgres.order_field]
+        del item[config.postgres.order_field]
         return {
-            "_index": self.config.elastic.index_name,
+            "_index": config.elastic.index_name,
             "_id": item.pop("id"),
             **item,
         }
 
     def _get_update_time(self, last_item: DictRow) -> str:
-        """Get updated_at time of hte item in the format of a json-consumable string"""
-        last_datetime = dict(last_item)[self.config.postgres.order_field]
+        """Get `updated_at` of the item in the format of a json-consumable string"""
+        last_datetime = dict(last_item)[config.postgres.order_field]
         return last_datetime.strftime(self.json_date_format)
 
     @backoff()
-    def load(self, transformed: List[Dict], last_item_time: str):
+    def load(self, transformed: List[Dict]):
         """Insert data into ElasticSearch and save new state on success."""
         self._post_index()
         bulk(self.es, transformed)
-        self.state.set_state(self.config.postgres.state_field, last_item_time)
         logging.info(
             "Batch of %s %s uploaded to elasticsearch.",
             len(transformed),
@@ -108,14 +107,13 @@ class Etl:
         )
 
     def _post_index(self):
-        """Create filmwork index in ElasticSearch.
-        No error is raised if index already exists."""
+        """Create index in ElasticSearch. No error is raised if index already exists."""
         if not self._index_body:
-            with open(self.config.elastic.index_json_path, "r") as file:
+            with open(config.elastic.index_json_path, "r") as file:
                 self._index_body = json.load(file)
 
         self.es.indices.create(
-            index=self.config.elastic.index_name, body=self._index_body, ignore=400
+            index=config.elastic.index_name, body=self._index_body, ignore=400
         )
 
 
@@ -124,8 +122,7 @@ class MovieEtl(Etl):
 
     def __init__(self) -> None:
         """Specifies config file and item name for generic ETL"""
-        config = Config.parse_file("movies/config.json")
-        super().__init__(config=config, items_name="movies")
+        super().__init__(items_name="movies")
 
 
 if __name__ == "__main__":
