@@ -21,7 +21,9 @@ logging.basicConfig(level=logging.INFO)
 class Etl(ABC):
     """General Etl class for item replication from PostgreSQL database to ElasticSearch index"""
 
-    def __init__(self, index_name: str, index_folder_path: Path = Path("index")) -> None:
+    def __init__(
+        self, index_name: str, index_folder_path: Path = Path("index")
+    ) -> None:
         """Initiate ETL process with config values"""
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
         self.index_name = index_name
