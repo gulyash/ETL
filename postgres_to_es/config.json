@@ -17,6 +17,6 @@
     "elastic_host": "es01-test"
   },
   "state": {
-    "state_file_path": "state.json"
+    "file_path": "state.json"
   }
 }

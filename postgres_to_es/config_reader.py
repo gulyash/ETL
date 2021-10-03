@@ -24,7 +24,7 @@ class Elastic(BaseModel):
 
 
 class StateSettings(BaseModel):
-    state_file_path: Optional[str]
+    file_path: Optional[str]
 
 
 class Config(BaseModel):

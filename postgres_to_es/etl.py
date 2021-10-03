@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 class Etl:
-    """Generic Etl class for item replication from PostgreSQL database to ElasticSearch index"""
+    """General Etl class for item replication from PostgreSQL database to ElasticSearch index"""
 
     def __init__(self, items_name: str) -> None:
         """Initiate ETL process with config values"""
@@ -26,7 +26,7 @@ class Etl:
         self._fetch_query = None
         self._index_body = None
         self.order_field = self.state_field = "updated_at"
-        self.state = State(JsonFileStorage(config.state.state_file_path))
+        self.state = State(JsonFileStorage(config.state.file_path))
         self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
 
     def run(self):
