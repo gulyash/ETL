@@ -14,7 +14,6 @@ class PostgresSettings(BaseModel):
     dsn: DSNSettings
     limit: Optional[int]
     fetch_delay: Optional[float]
-    state_file_path: Optional[str]
     sql_query_path: FilePath
 
 
@@ -24,9 +23,14 @@ class Elastic(BaseModel):
     elastic_host: str
 
 
+class StateSettings(BaseModel):
+    state_file_path: Optional[str]
+
+
 class Config(BaseModel):
     postgres: PostgresSettings
     elastic: Elastic
+    state: StateSettings
 
 
 config = Config.parse_file("config.json")

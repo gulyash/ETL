@@ -26,7 +26,7 @@ class Etl:
         self._fetch_query = None
         self._index_body = None
         self.order_field = self.state_field = "updated_at"
-        self.state = State(JsonFileStorage(config.postgres.state_file_path))
+        self.state = State(JsonFileStorage(config.state.state_file_path))
         self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
 
     def run(self):
@@ -71,9 +71,7 @@ class Etl:
     @backoff()
     def get_connection(self):
         """Obtain PostgreSQL database connection using a backoff."""
-        return psycopg2.connect(
-            **dict(config.postgres.dsn), cursor_factory=DictCursor
-        )
+        return psycopg2.connect(**dict(config.postgres.dsn), cursor_factory=DictCursor)
 
     def transform(self, extract: List[DictRow]) -> Tuple[List[Dict], str]:
         """Prepare data for loading into ElasticSearch and get last item's updated_at time."""

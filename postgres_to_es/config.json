@@ -7,7 +7,6 @@
       "host": "postgres",
       "port": 5432
     },
-    "state_file_path": "movies/state.json",
     "fetch_delay": 1,
     "limit": 100,
     "sql_query_path": "movies/postgres_query.sql"
@@ -16,5 +15,8 @@
     "index_name": "movies",
     "index_json_path": "movies/index_body.json",
     "elastic_host": "es01-test"
+  },
+  "state": {
+    "state_file_path": "state.json"
   }
 }

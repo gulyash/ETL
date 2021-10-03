@@ -24,12 +24,11 @@ def backoff(
     :param timeout: максимальное суммарное время ожидания, после которого ошибка будет передана дальше.
     :return: результат выполнения функции
     """
+
     def get_sleep_time(n):
         time_interval = start_sleep_time * factor ** n
         return (
-            border_sleep_time
-            if time_interval >= border_sleep_time
-            else time_interval
+            border_sleep_time if time_interval >= border_sleep_time else time_interval
         )
 
     def func_wrapper(func):
