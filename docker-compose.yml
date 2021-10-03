@@ -1,6 +1,5 @@
 version: "3.9"
 services:
-
   db:
     image: postgres:13.4
     container_name: postgres
@@ -65,6 +64,7 @@ services:
     ports:
       - 9200:9200
       - 9300:9300
+
 volumes:
   data:
     driver: local
