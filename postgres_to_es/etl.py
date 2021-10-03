@@ -2,6 +2,7 @@ import json
 import logging
 import time
 from abc import abstractmethod, ABC
+from pathlib import Path
 from typing import List, Generator, Dict, Tuple
 
 import psycopg2
@@ -11,7 +12,7 @@ from psycopg2.extras import DictCursor, DictRow
 
 from backoff import backoff
 from config_reader import config
-from movies.movies_query import movies_query
+from queries.movies_query import movies_query
 from state import State, JsonFileStorage
 
 logging.basicConfig(level=logging.INFO)
@@ -20,14 +21,21 @@ logging.basicConfig(level=logging.INFO)
 class Etl(ABC):
     """General Etl class for item replication from PostgreSQL database to ElasticSearch index"""
 
-    def __init__(self, index_name: str) -> None:
+    def __init__(self, index_name: str, index_folder_path: Path = Path("index")) -> None:
         """Initiate ETL process with config values"""
-        self.index_name = index_name
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
-        self._index_body = None
+        self.index_name = index_name
+        self.index_body = self._read_index_body(index_folder_path)
         self.order_field = self.state_field = "updated_at"
+
         self.state = State(JsonFileStorage(config.state.file_path))
         self.es = Elasticsearch(hosts=[config.elastic.elastic_host])
+
+    def _read_index_body(self, index_folder_path: Path):
+        """Get index body from file."""
+        path = Path(index_folder_path, Path(f"{self.index_name}.json"))
+        with open(path, "r") as file:
+            return json.load(file)
 
     def run(self):
         """Run extract -> transform -> load in a loop."""
@@ -40,11 +48,11 @@ class Etl(ABC):
                 time.sleep(config.postgres.fetch_delay)
 
     def extract(self) -> Generator[List[DictRow], None, None]:
-        """Fetch movies data from PostgreSQL in batches"""
+        """Fetch queries data from PostgreSQL in batches"""
         update_time = self._get_last_update_time()
         pg_conn = self.get_connection()
         with pg_conn.cursor() as cursor:
-            # When we update genre or a person `updated_at` column of related movies gets a new value.
+            # When we update genre or a person `updated_at` column of related queries gets a new value.
             # This allows us to fetch everything we need using the same query.
             # See signals.py in Django application for reference.
             cursor.execute(self._get_guery(), (update_time,))
@@ -90,30 +98,23 @@ class Etl(ABC):
         last_datetime = dict(last_item)[self.order_field]
         return last_datetime.strftime(self.json_date_format)
 
-    @backoff()
     def load(self, transformed: List[Dict]):
         """Insert data into ElasticSearch and save new state on success."""
-        self._post_index()
-        bulk(self.es, transformed)
+        self._post_to_elastic(transformed)
         logging.info(
             "Batch of %s %s uploaded to elasticsearch.",
             len(transformed),
             self.index_name,
         )
 
-    def _post_index(self):
-        """Create index in ElasticSearch. No error is raised if index already exists."""
-        if not self._index_body:
-            with open(config.elastic.index_json_path, "r") as file:
-                self._index_body = json.load(file)
-
-        self.es.indices.create(
-            index=self.index_name, body=self._index_body, ignore=400
-        )
+    @backoff()
+    def _post_to_elastic(self, transformed: List[Dict]):
+        self.es.indices.create(index=self.index_name, body=self.index_body, ignore=400)
+        bulk(self.es, transformed)
 
 
 class MovieEtl(Etl):
-    """Extract movies from PostgreSQL database and load them into ElasticSearch index"""
+    """Extract queries from PostgreSQL database and load them into ElasticSearch index"""
 
     def _get_guery(self):
         return movies_query

@@ -17,7 +17,6 @@ class PostgresSettings(BaseModel):
 
 
 class Elastic(BaseModel):
-    index_json_path: FilePath
     elastic_host: str
 
 
