@@ -2,7 +2,6 @@ import json
 import logging
 import time
 from abc import abstractmethod, ABC
-from pathlib import Path
 from typing import List, Generator, Dict, Tuple
 
 import psycopg2
@@ -21,9 +20,9 @@ logging.basicConfig(level=logging.INFO)
 class Etl(ABC):
     """General Etl class for item replication from PostgreSQL database to ElasticSearch index"""
 
-    def __init__(self, items_name: str) -> None:
+    def __init__(self, index_name: str) -> None:
         """Initiate ETL process with config values"""
-        self.items_name = items_name
+        self.index_name = index_name
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
         self._index_body = None
         self.order_field = self.state_field = "updated_at"
@@ -81,7 +80,7 @@ class Etl(ABC):
         item = dict(row)
         del item[self.order_field]
         return {
-            "_index": config.elastic.index_name,
+            "_index": self.index_name,
             "_id": item.pop("id"),
             **item,
         }
@@ -99,7 +98,7 @@ class Etl(ABC):
         logging.info(
             "Batch of %s %s uploaded to elasticsearch.",
             len(transformed),
-            self.items_name,
+            self.index_name,
         )
 
     def _post_index(self):
@@ -109,7 +108,7 @@ class Etl(ABC):
                 self._index_body = json.load(file)
 
         self.es.indices.create(
-            index=config.elastic.index_name, body=self._index_body, ignore=400
+            index=self.index_name, body=self._index_body, ignore=400
         )
 
 
@@ -121,7 +120,7 @@ class MovieEtl(Etl):
 
     def __init__(self) -> None:
         """Specifies config file and item name for generic ETL"""
-        super().__init__(items_name="movies")
+        super().__init__(index_name="movies")
 
 
 if __name__ == "__main__":
