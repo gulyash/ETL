@@ -22,7 +22,7 @@ class Etl(ABC):
     """General Etl class for item replication from PostgreSQL database to ElasticSearch index"""
 
     def __init__(
-            self, index_name: str, index_folder_path: Path = Path("index")
+        self, index_name: str, index_folder_path: Path = Path("index")
     ) -> None:
         """Initiate ETL process with config values"""
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
@@ -90,13 +90,13 @@ class Etl(ABC):
         """Convert DictRow into ElasticSearch consumable dictionary."""
         item_dict = dict(row)
         result = {
-            '_index': self.index_name,
+            "_index": self.index_name,
             **{
                 k: item_dict[k]
-                for k in self.index_body['mappings']['properties'].keys()
-            }
+                for k in self.index_body["mappings"]["properties"].keys()
+            },
         }
-        result['_id'] = result.pop('id')
+        result["_id"] = result.pop("id")
         return result
 
     def _get_update_time(self, last_item: DictRow) -> str:
