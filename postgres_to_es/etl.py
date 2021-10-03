@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from abc import abstractmethod, ABC
 from pathlib import Path
 from typing import List, Generator, Dict, Tuple
 
@@ -11,19 +12,19 @@ from psycopg2.extras import DictCursor, DictRow
 
 from backoff import backoff
 from config_reader import config
+from movies.movies_query import movies_query
 from state import State, JsonFileStorage
 
 logging.basicConfig(level=logging.INFO)
 
 
-class Etl:
+class Etl(ABC):
     """General Etl class for item replication from PostgreSQL database to ElasticSearch index"""
 
     def __init__(self, items_name: str) -> None:
         """Initiate ETL process with config values"""
         self.items_name = items_name
         self.json_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
-        self._fetch_query = None
         self._index_body = None
         self.order_field = self.state_field = "updated_at"
         self.state = State(JsonFileStorage(config.state.file_path))
@@ -41,14 +42,13 @@ class Etl:
 
     def extract(self) -> Generator[List[DictRow], None, None]:
         """Fetch movies data from PostgreSQL in batches"""
-        query = self._get_guery(config.postgres.sql_query_path)
         update_time = self._get_last_update_time()
         pg_conn = self.get_connection()
         with pg_conn.cursor() as cursor:
             # When we update genre or a person `updated_at` column of related movies gets a new value.
             # This allows us to fetch everything we need using the same query.
             # See signals.py in Django application for reference.
-            cursor.execute(query, (update_time,))
+            cursor.execute(self._get_guery(), (update_time,))
             while True:
                 batch = cursor.fetchmany(config.postgres.limit)
                 if not batch:
@@ -56,13 +56,10 @@ class Etl:
                 yield batch
         cursor.close()
 
-    def _get_guery(self, query_path: Path):
+    @abstractmethod
+    def _get_guery(self):
         """Load PostgreSQL query from file or use 'cached' one."""
-        if not self._fetch_query:
-            # file path validity is checked upon config validation
-            with open(query_path, "r") as query_file:
-                self._fetch_query = query_file.read()
-        return self._fetch_query
+        pass
 
     def _get_last_update_time(self, default_value: str = "2000-01-01T00:00:00.000000"):
         """Fetch last updated time from config to start up from"""
@@ -118,6 +115,9 @@ class Etl:
 
 class MovieEtl(Etl):
     """Extract movies from PostgreSQL database and load them into ElasticSearch index"""
+
+    def _get_guery(self):
+        return movies_query
 
     def __init__(self) -> None:
         """Specifies config file and item name for generic ETL"""

@@ -8,8 +8,7 @@
       "port": 5432
     },
     "fetch_delay": 1,
-    "limit": 100,
-    "sql_query_path": "movies/postgres_query.sql"
+    "limit": 100
   },
   "elastic": {
     "index_name": "movies",

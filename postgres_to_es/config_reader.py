@@ -14,7 +14,6 @@ class PostgresSettings(BaseModel):
     dsn: DSNSettings
     limit: Optional[int]
     fetch_delay: Optional[float]
-    sql_query_path: FilePath
 
 
 class Elastic(BaseModel):
